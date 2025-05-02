@@ -1,6 +1,8 @@
 package com.gestion.intervention.application.person.service;
 
 import com.gestion.intervention.application.person.record.PersonDTO;
+import com.gestion.intervention.application.person.record.request.LoginRequestDTO;
+import com.gestion.intervention.application.person.record.response.LoginResponseDTO;
 import com.gestion.intervention.domain.person.model.Person;
 import com.gestion.intervention.domain.person.repository.PersonRepository;
 // Import other repositories if needed for deletion checks
@@ -8,8 +10,15 @@ import com.gestion.intervention.domain.person.repository.PersonRepository;
 // import com.gestion.intervention.domain.technicianinfo.repository.TechnicianInfoRepository;
 // import com.gestion.intervention.domain.helpdeskinfo.repository.HelpDeskInfoRepository;
 
+import com.gestion.intervention.domain.role.model.Role;
+import com.gestion.intervention.domain.role.repository.RoleRepository;
+import com.gestion.intervention.kernel.security.jwt.JwtService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate; // Added import
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -24,8 +34,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PersonServiceImpl implements PersonService {
 
+    private final AuthenticationManager authenticationManager;
     private final PersonRepository personRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final RoleRepository roleRepository;
     // Inject other repositories if needed for deletion checks
     // private final PanneRepository panneRepository;
     // private final TechnicianInfoRepository technicianInfoRepository;
@@ -119,6 +132,55 @@ public class PersonServiceImpl implements PersonService {
         // checkPersonAssociations(id);
 
         personRepository.deleteById(id);
+    }
+
+    @Override
+    public LoginResponseDTO login(LoginRequestDTO dto) {
+        Person dbPerson = (dto.usernameOrEmail().contains("@")) ? personRepository.findByEmail(dto.usernameOrEmail()).orElseThrow(() -> new RuntimeException("")) : personRepository.findByUsername(dto.usernameOrEmail()).orElseThrow(() -> new RuntimeException(""));
+
+        Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(dbPerson.getUsername(), dto.password()));
+
+        if (!authentication.isAuthenticated())
+            throw new RuntimeException("Authentication failed user was not found");
+
+        return new LoginResponseDTO(jwtService.generateAccessToken(dbPerson), jwtService.generateRefreshToken(dbPerson), dbPerson.getPrenom(), dbPerson.getNom(), dbPerson.getRoles().stream().map(r -> String.valueOf(r.getAuthority())).toList());
+    }
+
+    @Override
+    @Transactional
+    public LoginResponseDTO register(PersonDTO dto) {
+        personRepository.findByEmail(dto.email()).ifPresent(existingUser -> {
+            throw new RuntimeException("Email already registered: " + dto.email());
+        });
+
+        Role defaultRole = roleRepository.findAll().stream().filter(r -> r.getAuthority().equals("ROLE_EMPLOYEE")).findFirst()
+                .orElseThrow(() -> new RuntimeException("Error: Default Role ROLE_EMPLOYEE not found. Ensure roles are seeded in the database."));
+
+        Person newPerson = Person.builder()
+                .CIN(dto.CIN())
+                .nom(dto.nom())
+                .prenom(dto.prenom())
+                .email(dto.email())
+                .username(dto.username())
+                .password(passwordEncoder.encode(dto.password()))
+                .telephone(dto.telephone())
+                .address(dto.address())
+                .dateNaissance(dto.dateNaissance())
+                .roles(List.of(defaultRole))
+                .build();
+
+        Person savedPerson = personRepository.save(newPerson);
+
+        String accessToken = jwtService.generateAccessToken(savedPerson);
+        String refreshToken = jwtService.generateRefreshToken(savedPerson);
+
+        return new LoginResponseDTO(
+                accessToken,
+                refreshToken,
+                savedPerson.getPrenom(),
+                savedPerson.getNom(),
+                savedPerson.getRoles().stream().map(Role::getAuthority).collect(Collectors.toList())
+        );
     }
 
     private void validatePersonUniqueness(String cin, String email, String username, String telephone, UUID idToExclude) {
