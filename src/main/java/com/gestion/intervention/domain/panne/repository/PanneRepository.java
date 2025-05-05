@@ -1,5 +1,6 @@
 package com.gestion.intervention.domain.panne.repository;
 
+import com.gestion.intervention.domain.panne.enumeration.PanneStatus;
 import com.gestion.intervention.domain.panne.model.Panne;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -15,4 +16,7 @@ public interface PanneRepository extends JpaRepository<Panne, UUID> {
     @Query("SELECT p FROM Panne p WHERE p.typePanne = :typePanne AND p.machine.id = :machineId")
     Optional<Panne> findActivePanneByTypeAndMachine(@Param("typePanne") String typePanne, @Param("machineId") UUID machineId);
     boolean existsActiveByReporterId(UUID reporterId);
+
+    Integer countAllByStatusAndReporter_Id(PanneStatus status, UUID reporterId);
+    Integer countAllByReporter_Id(UUID reporterId);
 }

@@ -4,6 +4,7 @@ import com.gestion.intervention.application.panne.record.PanneDTO;
 import com.gestion.intervention.domain.intervention.repository.InterventionRepository; // Added dependency
 import com.gestion.intervention.domain.machine.model.Machine;
 import com.gestion.intervention.domain.machine.repository.MachineRepository;
+import com.gestion.intervention.domain.panne.enumeration.PanneStatus;
 import com.gestion.intervention.domain.panne.model.Panne;
 // Assuming Panne has a status enum or field, e.g., PanneStatus.ACTIVE
 // import com.gestion.intervention.domain.panne.model.PanneStatus;
@@ -111,6 +112,17 @@ public class PanneServiceImpl implements PanneService {
         checkPanneAssociations(id);
 
         panneRepository.deleteById(id);
+    }
+
+    @Transactional
+    @Override
+    public Integer getTotalPannesByStatus(PanneStatus status, UUID userId) {
+        return panneRepository.countAllByStatusAndReporter_Id(status, userId);
+    }
+
+    @Override
+    public Integer getTotalPannesByReporterId(UUID reporterId) {
+        return panneRepository.countAllByReporter_Id(reporterId);
     }
 
     private void validatePanneInput(PanneDTO dto) {

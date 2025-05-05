@@ -1,5 +1,6 @@
 package com.gestion.intervention.adapter.web;
 
+import com.gestion.intervention.adapter.wrapper.ResponseWrapper;
 import com.gestion.intervention.application.intervention.record.InterventionDTO;
 import com.gestion.intervention.application.intervention.service.InterventionService;
 import com.gestion.intervention.application.panne.record.PanneDTO;
@@ -7,6 +8,8 @@ import com.gestion.intervention.application.panne.service.PanneService;
 // Import security utils to get current user
 // import org.springframework.security.core.context.SecurityContextHolder;
 // import org.springframework.security.core.userdetails.UserDetails;
+import com.gestion.intervention.domain.panne.enumeration.PanneStatus;
+import com.gestion.intervention.kernel.security.jwt.userPrincipal.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -21,9 +24,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 // import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -36,6 +42,20 @@ public class EmployeeController {
     private final PanneService panneService;
     private final InterventionService interventionService;
     // Inject MachineService/PieceService if needed for searching
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<?> dashboardData(@AuthenticationPrincipal UserPrincipal userPrincipal){
+        Integer totalPendingPannes = panneService.getTotalPannesByStatus(PanneStatus.PENDING, userPrincipal.id());
+        Integer totalResolvedPannes = panneService.getTotalPannesByStatus(PanneStatus.RESOLVED, userPrincipal.id());
+        Integer totalPannes = panneService.getTotalPannesByReporterId(userPrincipal.id());
+
+        Map<String, Integer> response = new HashMap<>();
+        response.put("totalPending", totalPendingPannes);
+        response.put("totalResolved", totalResolvedPannes);
+        response.put("totalPannes", totalPannes);
+
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
 
     // == Report Panne (Réclamer Panne) ==
     @PostMapping("/pannes")

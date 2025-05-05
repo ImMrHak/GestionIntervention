@@ -2,6 +2,7 @@ package com.gestion.intervention.domain.panne.model;
 
 import com.gestion.intervention.domain.intervention.model.Intervention;
 import com.gestion.intervention.domain.machine.model.Machine;
+import com.gestion.intervention.domain.panne.enumeration.PanneStatus;
 import com.gestion.intervention.domain.person.model.Person;
 import com.gestion.intervention.domain.piece.model.Piece;
 import jakarta.persistence.*;
@@ -21,6 +22,9 @@ public class Panne {
     @Id
     @UuidGenerator
     private UUID id;
+
+    @Enumerated(EnumType.STRING)
+    private PanneStatus status;
 
     private String typePanne;
 
